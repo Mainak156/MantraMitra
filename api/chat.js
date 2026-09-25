@@ -47,21 +47,26 @@ Simple meaning already provided by MantraMitra: ${meaning}`;
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: process.env.NVIDIA_MODEL || "z-ai/glm-5-3-flash",
+        model: process.env.NVIDIA_MODEL || "deepseek-ai/deepseek-v4.1-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: question.slice(0, 2000) },
         ],
-        temperature: 0.2,
+        temperature: 0.3,
         top_p: 0.8,
-        max_tokens: 180,
-        reasoning_effort: "low",
-        chat_template_kwargs: { clear_thinking: true },
+        max_tokens: 160,
         stream: false,
       }),
     });
 
-    const data = await response.json();
+    const raw = await response.text();
+    let data = {};
+
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      console.error("NVIDIA API returned non-JSON response:", response.status);
+    }
 
     if (!response.ok) {
       console.error("NVIDIA API error:", response.status, data);
@@ -71,6 +76,7 @@ Simple meaning already provided by MantraMitra: ${meaning}`;
     const answer = data?.choices?.[0]?.message?.content?.trim();
 
     if (!answer) {
+      console.error("NVIDIA API returned no answer:", data);
       return res.status(502).json({ error: "NVIDIA AI returned an empty response." });
     }
 
