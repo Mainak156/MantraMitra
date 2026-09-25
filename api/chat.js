@@ -47,14 +47,16 @@ Simple meaning already provided by MantraMitra: ${meaning}`;
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: process.env.NVIDIA_MODEL || "openai/gpt-oss-20b",
+        model: process.env.NVIDIA_MODEL || "z-ai/glm-5-3-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: question.slice(0, 2000) },
         ],
-        temperature: 0.4,
-        top_p: 0.9,
-        max_tokens: 500,
+        temperature: 0.2,
+        top_p: 0.8,
+        max_tokens: 180,
+        reasoning_effort: "low",
+        chat_template_kwargs: { clear_thinking: true },
         stream: false,
       }),
     });
