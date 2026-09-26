@@ -49,3 +49,33 @@ nav{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);width:min(92v
 .progressWrap input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#f3cb79;border:2px solid #241a28}
 .progressWrap input[type=range]:disabled{opacity:.4;cursor:not-allowed}.songProgress{margin-bottom:14px}
 @media(max-width:560px){.mediaBtn{padding:10px 14px;font-size:12px}.mediaControls{gap:7px}.progressWrap{margin-top:11px}}
+
+.headerActions{display:flex;align-items:center;gap:8px}.network{font-size:9px;letter-spacing:.04em;padding:7px 9px;border-radius:999px;border:1px solid #3b2b45;background:#1b1124}.network.online{color:#a9ddb6}.network.offline{color:#f1c56f}.errorNote{color:#ffbf72!important}
+.offlineBtn{margin-top:12px;border:0;border-radius:13px;padding:11px 14px;background:#f2c56c;color:#241822;font-weight:800;cursor:pointer}.offlineBtn:disabled{opacity:.55;cursor:not-allowed}.offlineHelp{display:block;margin-top:8px;color:#9d91a5;font-size:10px;line-height:1.5}
+html{min-height:100%;background:#09060c}body{min-height:100%;overflow-x:hidden}.app{min-height:100svh;padding-bottom:calc(110px + env(safe-area-inset-bottom))}
+input,button{max-width:100%}.input input{font-size:16px}
+nav{bottom:calc(10px + env(safe-area-inset-bottom))}
+@media(min-width:900px){
+  .app{max-width:1180px}
+  header{padding:24px 34px}
+  main{padding:18px 34px 40px}
+  .hero{max-width:1100px;margin-inline:auto}
+  .player{max-width:920px;margin-inline:auto;margin-top:18px;padding:28px 34px}
+  .orbarea{height:270px}.orb{width:180px;height:180px;font-size:82px}.orbarea i{width:215px;height:215px}
+  .sanskrit{font-size:27px}.translit{font-size:14px}.audio-note{font-size:12px}
+  .row{max-width:920px;margin-inline:auto}
+  .sect{max-width:920px;margin-inline:auto;margin-top:28px}
+  .songPage,.section,.days,.suggests,.chat,.input,.info{max-width:920px;margin-left:auto;margin-right:auto}
+  .days{grid-template-columns:repeat(4,1fr)}
+  nav{width:min(760px,70vw)}
+}
+@media(max-width:560px){
+  header{padding:14px 12px}.brand{gap:7px}.brand img{width:31px;height:31px}header b{font-size:18px}header small{font-size:9px}
+  .headerActions{gap:5px}.network{font-size:8px;padding:6px 7px}.langBtn{padding:7px 8px!important}
+  main{padding:6px 10px 26px}.player{padding:17px 13px;border-radius:24px}.orbarea{height:205px}
+  .orb{width:132px;height:132px;font-size:62px}.orbarea i{width:160px;height:160px}
+  .hero{padding:15px;border-radius:20px}.hero h1{font-size:25px}.hero p{font-size:12px}
+  .player h2{font-size:21px}.sanskrit{font-size:19px}.translit{font-size:11px}
+  .mediaBtn{min-height:44px}.progressWrap input[type=range]{height:7px}.progressWrap input[type=range]::-webkit-slider-thumb{width:18px;height:18px}
+  .ytFrame{width:100%;min-height:190px}.songMeta b{font-size:11px}
+}
