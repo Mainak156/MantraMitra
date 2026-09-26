@@ -154,7 +154,7 @@ function App(){
   };
 
   const labels=lang==="বাংলা"
-    ?{home:"হোম",week:"সপ্তাহ",ask:"জিজ্ঞাসা",songs:"গান",more:"আরও",play:"শুরু করুন",pause:"বিরতি",today:"আজ",mantras:"আজকের মন্ত্র",songs:"ভক্তিগান",startSongs:"ভক্তিগান শুরু করুন",continueSongs:"ভক্তিগানে চলুন",online:"অনলাইন",offline:"অফলাইন"}
+    ?{home:"হোম",week:"সপ্তাহ",ask:"জিজ্ঞাসা",songs:"ভক্তিগান",more:"আরও",play:"শুরু করুন",pause:"বিরতি",today:"আজ",mantras:"আজকের মন্ত্র",songs:"ভক্তিগান",startSongs:"ভক্তিগান শুরু করুন",continueSongs:"ভক্তিগানে চলুন",online:"অনলাইন",offline:"অফলাইন"}
     :{home:"Home",week:"Week",ask:"Ask",more:"More",play:"Play",pause:"Pause",today:"TODAY",mantras:"Today's mantras",songs:"Devotional songs",startSongs:"Start devotional songs",continueSongs:"Continue to devotional songs",online:"ONLINE",offline:"OFFLINE"};
 
   return <div className="app">
