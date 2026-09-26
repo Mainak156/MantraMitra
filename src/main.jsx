@@ -181,7 +181,7 @@ function App(){
     let x=q.trim();if(!x||loading)return;
     setMsg(v=>[...v,{r:"u",x}]);setQ("");setLoading(true);
     try{
-      let r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:x,mantra:{name:m[0],sanskrit:m[1],transliteration:m[2],meaning}}));
+      let r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:x,mantra:{name:m[0],sanskrit:m[1],transliteration:m[2],meaning}})});
       let j=await r.json();if(!r.ok)throw 0;setMsg(v=>[...v,{r:"a",x:j.answer}]);
     }catch{setMsg(v=>[...v,{r:"a",x:meaning}])}finally{setLoading(false)}
   };
