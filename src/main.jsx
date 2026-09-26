@@ -43,16 +43,40 @@ function App(){
   [songIndex,setSongIndex]=useState(0),[songPlaying,setSongPlaying]=useState(false),
   [songDuration,setSongDuration]=useState(0),[songCurrent,setSongCurrent]=useState(0),
   [mantraCurrent,setMantraCurrent]=useState(0),[mantraDuration,setMantraDuration]=useState(0),
+  [online,setOnline]=useState(navigator.onLine),[offlineSaved,setOfflineSaved]=useState(0),[offlineTotal,setOfflineTotal]=useState(0),[savingOffline,setSavingOffline]=useState(false),
   audio=useRef(null),yt=useRef(null),ytHost=useRef(null),pendingSongs=useRef(false),
   day=D[t],m=day[4][mi],devotional=DEVOTIONAL[day[0]];
 
   useEffect(()=>{
+    const onOnline=()=>setOnline(true),onOffline=()=>setOnline(false);
+    window.addEventListener("online",onOnline);window.addEventListener("offline",onOffline);
     if("serviceWorker"in navigator)navigator.serviceWorker.register("/sw.js",{updateViaCache:"none"}).then(r=>r.update()).catch(()=>{});
     loadYouTubeAPI().catch(()=>{});
-    return()=>{if(yt.current){yt.current.destroy();yt.current=null}};
+    return()=>{
+      window.removeEventListener("online",onOnline);window.removeEventListener("offline",onOffline);
+      if(yt.current){yt.current.destroy();yt.current=null}
+    };
   },[]);
 
   useEffect(()=>{
+    if(!("serviceWorker"in navigator))return;
+    const onMessage=e=>{
+      if(e.data?.type==="OFFLINE_PROGRESS"){
+        setOfflineSaved(e.data.saved||0);setOfflineTotal(e.data.total||0);
+        if(e.data.saved>=e.data.total)setSavingOffline(false);
+      }
+    };
+    navigator.serviceWorker.addEventListener("message",onMessage);
+    return()=>navigator.serviceWorker.removeEventListener("message",onMessage);
+  },[]);
+
+  const cacheOffline=urls=>{
+    if(!online||!("serviceWorker"in navigator))return;
+    navigator.serviceWorker.ready.then(reg=>reg.active?.postMessage({type:"CACHE_URLS",urls})).catch(()=>{});
+  };
+
+  useEffect(()=>{
+    cacheOffline(day[4].map(x=>x[3]));
     setMi(0);setSongIndex(0);setSongBlocked(false);setSongPlaying(false);setSongCurrent(0);setSongDuration(0);
     setTab("home");setSongsOpen(false);pendingSongs.current=false;
     if(yt.current){yt.current.destroy();yt.current=null}
@@ -144,7 +168,7 @@ function App(){
       setAudioError("");
       if(audio.current.readyState<2)audio.current.load();
       await audio.current.play();setPlay(true);
-    }catch{setPlay(false);setAudioError("Audio could not be loaded. Refresh once if this continues.")}
+    }catch{setPlay(false);setAudioError(online?"Audio could not be loaded. Refresh once if this continues.":"এই মন্ত্রটি এই ফোনে এখনও offline-এ সংরক্ষিত হয়নি। একবার online হয়ে Play করুন, তারপর এটি offline-এ চলবে.")}
   };
 
   const stopMantra=()=>{
@@ -199,7 +223,7 @@ function App(){
   </div>;
 
   return <div className="app">
-    <header><div><div className="brand"><img src="/logo.svg" alt="MantraMitra logo"/><b>MantraMitra</b></div><small>নিত্য মন্ত্র • Daily prayer • শান্ত শ্রবণ</small></div><button className="langBtn" onClick={()=>setLang(lang==="বাংলা"?"English":"বাংলা")}><Languages size={19}/><span>{lang}</span></button></header>
+    <header><div><div className="brand"><img src="/logo.svg" alt="MantraMitra logo"/><b>MantraMitra</b></div><small>নিত্য মন্ত্র • Daily prayer • শান্ত শ্রবণ</small></div><div className="headerActions"><span className={"network "+(online?"online":"offline")}>{online?"● Online":"⌁ Offline"}</span><button className="langBtn" onClick={()=>setLang(lang==="বাংলা"?"English":"বাংলা")}><Languages size={19}/><span>{lang}</span></button></div></header>
     <main>
       {tab==="home"&&<>
         <section className="hero"><div><small>{labels.today} · {day[1]}</small><h1>{day[2]} {day[0]} <em>{day[1]}</em></h1><p>{day[3]}</p></div><span>✓ {labels.offline} 108×</span></section>
@@ -207,7 +231,7 @@ function App(){
           <audio ref={audio} src={m[3]} preload="metadata" onLoadedMetadata={e=>setMantraDuration(e.currentTarget.duration||0)} onCanPlay={()=>setAudioError("")} onTimeUpdate={e=>{setMantraCurrent(e.currentTarget.currentTime||0);setMantraDuration(e.currentTarget.duration||0)}} onError={()=>{setPlay(false);setAudioError("Audio file failed to load.")}} onEnded={onMantraEnded}/>
           <div className="orbarea"><div className="orb">ॐ</div>{[1,2,3].map(i=><motion.i key={i} animate={{scale:play?[1,1.2,1]:1,opacity:play?[.2,.45,.08]:.08}} transition={{duration:2,repeat:Infinity}}/>)}</div>
           <div className="pill">{day[2]} {day[1]}</div><h2>{m[0]}</h2><div className="sanskrit">{m[1]}</div><div className="translit">{m[2]}</div>
-          <div className="audio-note">🎙️ সম্পূর্ণ 108× Sanskrit recording · Full-length · Offline ready</div>{audioError&&<div className="audio-note">⚠️ {audioError}</div>}
+          <div className="audio-note">🎙️ সম্পূর্ণ 108× Sanskrit recording · Full-length · {online?"Offline copy প্রস্তুত হচ্ছে":"Offline mode"}</div>{audioError&&<div className="audio-note errorNote">⚠️ {audioError}</div>}
           <Controls playing={play} onPlay={toggle} onPause={toggle} onStop={stopMantra}/>
           <div className="progressWrap"><div className="progressTimes"><span>{formatTime(mantraCurrent)}</span><span>{formatTime(mantraDuration)}</span></div><input aria-label="Mantra progress" type="range" min="0" max={mantraDuration||0} step="0.1" value={Math.min(mantraCurrent,mantraDuration||0)} onChange={seekMantra} style={{"--progress":mantraPercent+"%"}} disabled={!mantraDuration}/></div>
           <div className="progress-count">108× full recording</div><div className="bars">{Array.from({length:20},(_,i)=><motion.span key={i} animate={{height:play?[8,10+(i%7)*5,8]:8}} transition={{repeat:Infinity,duration:.6}}/>)}</div>
@@ -233,7 +257,7 @@ function App(){
 
       {tab==="ask"&&<><div className="section"><small>ONLINE GUIDE · অনলাইন সহায়ক</small><h2>মন্ত্র সম্পর্কে জিজ্ঞাসা করুন</h2><p>সহজ বাংলায়, Hindi বা English-এ জিজ্ঞাসা করুন। AI guide is online-only.</p></div><div className="suggests">{["এই মন্ত্রের অর্থ কী?","কেন এই মন্ত্র জপ করা হয়?","How should I chant this mantra?"].map(x=><button key={x} onClick={()=>{setQ(x);setTimeout(ask,0)}}>{x}</button>)}</div><div className="chat">{msg.length?msg.map((x,i)=><div key={i} className={"bubble "+x.r}>{x.x}</div>):<div className="empty"><Bot size={36}/><p>Ask about <b>{m[0]}</b>.</p></div>}{loading&&<div className="bubble a">Thinking…</div>}</div><div className="input"><input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&ask()} placeholder="বাংলা, Hindi or English-এ লিখুন…" disabled={loading}/><button disabled={loading} onClick={ask}><Send size={18}/></button></div></>}
 
-      {tab==="more"&&<><div className="section"><small>MORE · আরও</small><h2>আপনার ঘরের জন্য</h2><p>Large controls, calm visuals and a Bengali-friendly devotional flow.</p></div><div className="info"><strong>🔊 Offline 108× audio</strong><p>আপনার দেওয়া সম্পূর্ণ 108× recordings-ই offline playback-এর জন্য ব্যবহার হয়।</p></div><div className="info"><strong>🎵 Online devotional songs</strong><p>YouTube-এর official embedded player দিয়ে devotional collections চালানো হয়। গান download বা app-এর ভিতরে রাখা হয় না।</p></div><div className="info"><strong>🤖 Online AI</strong><p>DeepSeek V4.1 Flash through a secure Vercel endpoint. The API key stays on the server.</p></div><div className="info"><strong>🌺 Bengali household mode</strong><p>রবিবার থেকে শনিবার পর্যন্ত deity-based flow, বাংলা day labels, এবং Bengali devotional traditions-এর জন্য প্রস্তুত structure.</p></div><div className="info"><strong>📱 Installable</strong><p>Use your browser's Add to Home Screen option.</p></div></>}
+      {tab==="more"&&<><div className="section"><small>MORE · আরও</small><h2>আপনার ঘরের জন্য</h2><p>Large controls, calm visuals and a Bengali-friendly devotional flow.</p></div><div className="info"><strong>🔊 Offline 108× audio</strong><p>এই দিনের ২টি মন্ত্র online থাকলে background-এ ফোনে cache হয়। সব ১৪টি recording একসাথে রাখতে চাইলে নিচের button ব্যবহার করুন।</p><button className="offlineBtn" onClick={()=>{setSavingOffline(true);setOfflineSaved(0);setOfflineTotal(D.flatMap(x=>x[4]).length);cacheOffline(D.flatMap(x=>x[4]).map(x=>x[3]))}} disabled={!online||savingOffline}>{savingOffline?("সংরক্ষণ হচ্ছে "+offlineSaved+"/"+offlineTotal):"📥 সব ১৪টি 108× offline-এ রাখুন"}</button>{!online&&<small className="offlineHelp">এটি চালাতে একবার internet connection দিন। মোট audio প্রায় 160 MB।</small>}</div><div className="info"><strong>🎵 Online devotional songs</strong><p>YouTube-এর official embedded player দিয়ে devotional collections চালানো হয়। গান download বা app-এর ভিতরে রাখা হয় না।</p></div><div className="info"><strong>🤖 Online AI</strong><p>DeepSeek V4.1 Flash through a secure Vercel endpoint. The API key stays on the server.</p></div><div className="info"><strong>🌺 Bengali household mode</strong><p>রবিবার থেকে শনিবার পর্যন্ত deity-based flow, বাংলা day labels, এবং Bengali devotional traditions-এর জন্য প্রস্তুত structure.</p></div><div className="info"><strong>📱 Installable</strong><p>Use your browser's Add to Home Screen option. The same responsive PWA works in Chrome, Safari and desktop browsers.</p></div></>}
     </main>
     <nav><button className={tab==="home"?"on":""} onClick={()=>setTab("home")}><Home size={20}/>{labels.home}</button><button className={tab==="week"?"on":""} onClick={()=>setTab("week")}><CalendarDays size={20}/>{labels.week}</button><button className={tab==="ask"?"on":""} onClick={()=>setTab("ask")}><Bot size={20}/>{labels.ask}</button><button className={tab==="songs"?"on":""} onClick={()=>openSongs(false)}><Music2 size={20}/>{labels.songs}</button><button className={tab==="more"?"on":""} onClick={()=>setTab("more")}><Settings size={20}/>{labels.more}</button></nav>
   </div>
