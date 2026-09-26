@@ -201,31 +201,45 @@ function App(){
     setSongIndex(i);setSongBlocked(false);yt.current?.playVideoAt(i);setSongPlaying(true);
   };
 
-  const ask=async()=>{
-    let x=q.trim();if(!x||loading)return;
+  const ask=async(questionOverride=null)=>{
+    const x=String(questionOverride??q).trim();if(!x||loading)return;
     setMsg(v=>[...v,{r:"u",x}]);setQ("");setLoading(true);
     try{
       const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:x,mantra:{name:m[0],sanskrit:m[1],transliteration:m[2],meaning}})});
-      if(!r.ok||!r.body)throw 0;
+      if(!r.ok||!r.body)throw new Error("AI request failed");
       const reader=r.body.getReader(),decoder=new TextDecoder();
       let buffer="",answer="";
       setMsg(v=>[...v,{r:"a",x:""}]);
+      const handleLine=line=>{
+        if(!line.startsWith("data:"))return;
+        const raw=line.slice(5).trim();if(!raw||raw==="[DONE]")return;
+        try{
+          const data=JSON.parse(raw);
+          if(data.error)throw new Error(data.error);
+          if(data.delta){
+            answer+=data.delta;
+            setMsg(v=>{const next=[...v];next[next.length-1]={r:"a",x:answer};return next});
+          }
+        }catch(error){if(error?.message&&!/Unexpected token|JSON/.test(error.message))throw error}
+      };
       while(true){
         const {value,done}=await reader.read();
         if(done)break;
         buffer+=decoder.decode(value,{stream:true});
-        const lines=buffer.split("\n");buffer=lines.pop()||"";
-        for(const line of lines){
-          if(!line.startsWith("data:"))continue;
-          try{
-            const data=JSON.parse(line.slice(5).trim());
-            if(data.delta){answer+=data.delta;setMsg(v=>{const next=[...v];next[next.length-1]={r:"a",x:answer};return next})}
-            if(data.error)throw 0;
-          }catch{}
-        }
+        const lines=buffer.split(/\\r?\\n/);buffer=lines.pop()||"";
+        for(const line of lines)handleLine(line);
       }
-      if(!answer)throw 0;
-    }catch{setMsg(v=>[...v,{r:"a",x:meaning}])}finally{setLoading(false)}
+      buffer+=decoder.decode();
+      for(const line of buffer.split(/\\r?\\n/))handleLine(line);
+      if(!answer)throw new Error("Empty AI response");
+    }catch{
+      setMsg(v=>{
+        const next=[...v],last=next[next.length-1];
+        if(last?.r==="a"&&last.x==="")next[next.length-1]={r:"a",x:meaning};
+        else next.push({r:"a",x:meaning});
+        return next;
+      });
+    }finally{setLoading(false)}
   };
 
   const labels=lang==="বাংলা"
@@ -273,7 +287,7 @@ function App(){
         <small className="onlineNote">🌐 YouTube devotional music needs an internet connection. Your 108× mantra recordings remain offline.</small>
       </section></div>}
 
-      {tab==="ask"&&<><div className="section"><small>ONLINE GUIDE · অনলাইন সহায়ক</small><h2>মন্ত্র সম্পর্কে জিজ্ঞাসা করুন</h2><p>সহজ বাংলায়, Hindi বা English-এ জিজ্ঞাসা করুন। AI guide is online-only.</p></div><div className="suggests">{["এই মন্ত্রের অর্থ কী?","কেন এই মন্ত্র জপ করা হয়?","How should I chant this mantra?"].map(x=><button key={x} onClick={()=>{setQ(x);setTimeout(ask,0)}}>{x}</button>)}</div><div className="chat">{msg.length?msg.map((x,i)=><div key={i} className={"bubble "+x.r}>{x.x}</div>):<div className="empty"><Bot size={36}/><p>Ask about <b>{m[0]}</b>.</p></div>}{loading&&<div className="bubble a">Thinking…</div>}</div><div className="input"><input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&ask()} placeholder="বাংলা, Hindi or English-এ লিখুন…" disabled={loading}/><button disabled={loading} onClick={ask}><Send size={18}/></button></div></>}
+      {tab==="ask"&&<><div className="section"><small>ONLINE GUIDE · অনলাইন সহায়ক</small><h2>মন্ত্র সম্পর্কে জিজ্ঞাসা করুন</h2><p>সহজ বাংলায়, Hindi বা English-এ জিজ্ঞাসা করুন। AI guide is online-only.</p></div><div className="suggests">{["এই মন্ত্রের অর্থ কী?","কেন এই মন্ত্র জপ করা হয়?","How should I chant this mantra?"].map(x=><button key={x} onClick={()=>ask(x)}>{x}</button>)}</div><div className="chat">{msg.length?msg.map((x,i)=><div key={i} className={"bubble "+x.r}>{x.x}</div>):<div className="empty"><Bot size={36}/><p>Ask about <b>{m[0]}</b>.</p></div>}</div><div className="input"><input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&ask()} placeholder="বাংলা, Hindi or English-এ লিখুন…" disabled={loading}/><button disabled={loading} onClick={ask}><Send size={18}/></button></div></>}
 
       {tab==="more"&&<><div className="section"><small>MORE · আরও</small><h2>আপনার ঘরের জন্য</h2><p>Large controls, calm visuals and a Bengali-friendly devotional flow.</p></div><div className="info"><strong>🔊 Offline 108× audio</strong><p>এই দিনের ২টি মন্ত্র online থাকলে background-এ ফোনে cache হয়। সব ১৪টি recording একসাথে রাখতে চাইলে নিচের button ব্যবহার করুন।</p><button className="offlineBtn" onClick={()=>{setSavingOffline(true);setOfflineSaved(0);setOfflineTotal(D.flatMap(x=>x[4]).length);cacheOffline(D.flatMap(x=>x[4]).map(x=>x[3]))}} disabled={!online||savingOffline}>{savingOffline?("সংরক্ষণ হচ্ছে "+offlineSaved+"/"+offlineTotal):"📥 সব ১৪টি 108× offline-এ রাখুন"}</button>{!online&&<small className="offlineHelp">এটি চালাতে একবার internet connection দিন। মোট audio প্রায় 160 MB।</small>}</div><div className="info"><strong>🎵 Online devotional songs</strong><p>YouTube-এর official embedded player দিয়ে devotional collections চালানো হয়। গান download বা app-এর ভিতরে রাখা হয় না।</p></div><div className="info"><strong>🤖 Online AI</strong><p>DeepSeek V4.1 Flash through a secure Vercel endpoint. The API key stays on the server.</p></div><div className="info"><strong>🌺 Bengali household mode</strong><p>রবিবার থেকে শনিবার পর্যন্ত deity-based flow, বাংলা day labels, এবং Bengali devotional traditions-এর জন্য প্রস্তুত structure.</p></div><div className="info"><strong>📱 Installable</strong><p>Use your browser's Add to Home Screen option. The same responsive PWA works in Chrome, Safari and desktop browsers.</p></div></>}
     </main>
