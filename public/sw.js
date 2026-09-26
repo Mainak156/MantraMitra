@@ -1,4 +1,4 @@
-const CACHE="mantra-mitra-v5";
+const CACHE="mantra-mitra-v6";
 const AUDIO=["surya-mantra","surya-gayatri","shiva-mantra","maha-mrityunjaya","hanuman-mantra","ganesha","hare-krishna","vishnu-mantra","vishnu-dhyaan","guru-mantra","lakshmi-mantra","mahalakshmi","shani","shani-maha-mantra"].map(x=>"/audio/108x/"+x+".mp3");
 const CORE=["/","/index.html","/manifest.webmanifest","/logo.svg"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(async c=>{
