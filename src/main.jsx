@@ -205,8 +205,26 @@ function App(){
     let x=q.trim();if(!x||loading)return;
     setMsg(v=>[...v,{r:"u",x}]);setQ("");setLoading(true);
     try{
-      let r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:x,mantra:{name:m[0],sanskrit:m[1],transliteration:m[2],meaning}})});
-      let j=await r.json();if(!r.ok)throw 0;setMsg(v=>[...v,{r:"a",x:j.answer}]);
+      const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:x,mantra:{name:m[0],sanskrit:m[1],transliteration:m[2],meaning}})});
+      if(!r.ok||!r.body)throw 0;
+      const reader=r.body.getReader(),decoder=new TextDecoder();
+      let buffer="",answer="";
+      setMsg(v=>[...v,{r:"a",x:""}]);
+      while(true){
+        const {value,done}=await reader.read();
+        if(done)break;
+        buffer+=decoder.decode(value,{stream:true});
+        const lines=buffer.split("\n");buffer=lines.pop()||"";
+        for(const line of lines){
+          if(!line.startsWith("data:"))continue;
+          try{
+            const data=JSON.parse(line.slice(5).trim());
+            if(data.delta){answer+=data.delta;setMsg(v=>{const next=[...v];next[next.length-1]={r:"a",x:answer};return next})}
+            if(data.error)throw 0;
+          }catch{}
+        }
+      }
+      if(!answer)throw 0;
     }catch{setMsg(v=>[...v,{r:"a",x:meaning}])}finally{setLoading(false)}
   };
 
