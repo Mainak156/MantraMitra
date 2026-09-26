@@ -22,23 +22,16 @@ export default async function handler(req, res) {
     const transliteration = String(mantra.transliteration || "").slice(0, 1000);
     const meaning = String(mantra.meaning || "").slice(0, 2000);
 
-    const systemPrompt = `You are MantraMitra, a warm and respectful devotional guide for a family app.
+    const systemPrompt = `You are MantraMitra, a warm devotional guide for a family app.
+Explain Hindu mantras in very simple language for parents.
+Use the supplied mantra information as primary context. Do not invent scripture, rituals, history, quotations, or scientific/medical promises. Mention that traditions can vary when relevant.
+Reply in the user's language when practical (English, Hindi, or Bengali).
+Keep the answer to 2–4 short sentences. Be direct. Do not recite the mantra unless explicitly asked.
 
-Explain Hindu mantras in very simple, clear language that parents can easily understand.
-Use the supplied mantra information as the primary context.
-Do not invent scripture, quotations, rituals, historical claims, or religious promises.
-Do not present devotional beliefs as scientific facts.
-When traditions differ, say that practices or interpretations can vary.
-Do not give medical, financial, or other professional advice.
-Keep answers to 2–4 short sentences by default. Be crisp and direct; only add detail when the user asks for it.
-Reply in the language the user uses when practical (English, Hindi, or Bengali).
-Never recite the mantra unless the user explicitly asks for the text.
-
-Current mantra:
-Name: ${name}
+Mantra: ${name}
 Sanskrit: ${sanskrit}
 Transliteration: ${transliteration}
-Simple meaning already provided by MantraMitra: ${meaning}`;
+Simple meaning: ${meaning}`;
 
     const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
       method: "POST",
@@ -50,37 +43,76 @@ Simple meaning already provided by MantraMitra: ${meaning}`;
         model: process.env.NVIDIA_MODEL || "deepseek-ai/deepseek-v4.1-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: question.slice(0, 2000) },
+          { role: "user", content: question.slice(0, 1200) },
         ],
-        temperature: 0.3,
-        top_p: 0.8,
-        max_tokens: 160,
-        stream: false,
+        temperature: 0.2,
+        max_tokens: 96,
+        stream: true,
       }),
     });
 
-    const raw = await response.text();
-    let data = {};
-
-    try {
-      data = raw ? JSON.parse(raw) : {};
-    } catch {
-      console.error("NVIDIA API returned non-JSON response:", response.status);
-    }
-
-    if (!response.ok) {
-      console.error("NVIDIA API error:", response.status, data);
+    if (!response.ok || !response.body) {
+      const raw = await response.text();
+      console.error("NVIDIA API error:", response.status, raw.slice(0, 1000));
       return res.status(502).json({ error: "NVIDIA AI request failed." });
     }
 
-    const answer = data?.choices?.[0]?.message?.content?.trim();
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
 
-    if (!answer) {
-      console.error("NVIDIA API returned no answer:", data);
-      return res.status(502).json({ error: "NVIDIA AI returned an empty response." });
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    const send = payload => res.write(`data: ${JSON.stringify(payload)}\n\n`);
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data:")) continue;
+          const raw = line.slice(5).trim();
+          if (!raw || raw === "[DONE]") continue;
+
+          try {
+            const data = JSON.parse(raw);
+            const delta = data?.choices?.[0]?.delta?.content;
+            if (delta) send({ delta });
+          } catch {
+            // Ignore incomplete/non-JSON SSE frames.
+          }
+        }
+      }
+
+      buffer += decoder.decode();
+      for (const line of buffer.split("\n")) {
+        if (!line.startsWith("data:")) continue;
+        const raw = line.slice(5).trim();
+        if (!raw || raw === "[DONE]") continue;
+        try {
+          const data = JSON.parse(raw);
+          const delta = data?.choices?.[0]?.delta?.content;
+          if (delta) send({ delta });
+        } catch {}
+      }
+
+      send({ done: true });
+      res.end();
+    } catch (error) {
+      console.error("NVIDIA stream error:", error);
+      try {
+        send({ error: "The AI response was interrupted." });
+        res.end();
+      } catch {}
     }
-
-    return res.status(200).json({ answer });
   } catch (error) {
     console.error("Chat API error:", error);
     return res.status(500).json({ error: "Unable to reach the NVIDIA AI service." });
