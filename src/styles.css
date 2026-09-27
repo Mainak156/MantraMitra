@@ -79,3 +79,22 @@ nav{bottom:calc(10px + env(safe-area-inset-bottom))}
   .mediaBtn{min-height:44px}.progressWrap input[type=range]{height:7px}.progressWrap input[type=range]::-webkit-slider-thumb{width:18px;height:18px}
   .ytFrame{width:100%;min-height:190px}.songMeta b{font-size:11px}
 }
+
+.ytPersistent{z-index:40}
+.ytPersistentVideo{overflow:hidden;background:#000}
+.ytPersistentVideo iframe{display:block;width:100%;height:100%;border:0}
+.songFull{max-width:920px;margin:18px auto 0;padding:0 0;position:relative}
+.songFull .ytPersistentVideo{width:100%;aspect-ratio:16/9;border-radius:18px}
+.songMiniMode{position:fixed;right:14px;bottom:calc(88px + env(safe-area-inset-bottom));width:240px;background:#120b18;border:1px solid #3b2b45;border-radius:16px;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+.songMiniMode .ytPersistentVideo{width:240px;height:200px}
+.ytMiniInfo{display:flex;align-items:center;gap:8px;padding:9px 10px;background:#120b18}
+.ytMiniTitle{min-width:0;flex:1;text-align:left;background:none;border:0;color:inherit;padding:0;cursor:pointer}
+.ytMiniTitle b,.ytMiniTitle small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ytMiniTitle b{font-size:10px}.ytMiniTitle small{font-size:8px;color:#9d91a5;margin-top:2px}
+.ytMiniInfo>button:last-child{border:0;background:none;color:#f2c56c;padding:7px;cursor:pointer}
+@media(max-width:560px){
+  .songFull{margin:10px 10px 0}
+  .songFull .ytPersistentVideo{border-radius:14px}
+  .songMiniMode{right:10px;bottom:calc(82px + env(safe-area-inset-bottom));width:220px}
+  .songMiniMode .ytPersistentVideo{width:220px;height:200px}
+}
