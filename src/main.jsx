@@ -212,7 +212,7 @@ function App(){
         playerVars:{playsinline:1,rel:0,controls:1,origin:window.location.origin},
         events:{
           onReady:e=>{
-            if(pendingSongs.current)e.target.loadPlaylist(devotional.items.map(x=>x.id),0,0);
+            e.target.loadPlaylist(devotional.items.map(x=>x.id),0,0);
           },
           onStateChange:e=>{
             const s=e.data;
