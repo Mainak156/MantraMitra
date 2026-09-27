@@ -35,6 +35,24 @@ const formatTime=s=>{
   return min+":"+String(sec).padStart(2,"0");
 };
 
+const setMediaSessionState=playing=>{
+  if("mediaSession"in navigator){
+    try{navigator.mediaSession.playbackState=playing?"playing":"paused"}catch{}
+  }
+};
+
+const updateMediaSessionMetadata=m=>{
+  if(!("mediaSession"in navigator)||!("MediaMetadata"in window))return;
+  try{
+    navigator.mediaSession.metadata=new MediaMetadata({
+      title:m[0],
+      artist:"MantraMitra · 108× Sanskrit recording",
+      album:"MantraMitra Daily Prayer",
+      artwork:[{src:"/logo.svg",sizes:"512x512",type:"image/svg+xml"}]
+    });
+  }catch{}
+};
+
 function App(){
   const[t,setT]=useState(new Date().getDay()),[mi,setMi]=useState(0),[tab,setTab]=useState("home"),
   [play,setPlay]=useState(false),[audioError,setAudioError]=useState(""),[q,setQ]=useState(""),
@@ -46,6 +64,70 @@ function App(){
   [online,setOnline]=useState(navigator.onLine),[offlineSaved,setOfflineSaved]=useState(0),[offlineTotal,setOfflineTotal]=useState(0),[savingOffline,setSavingOffline]=useState(false),
   audio=useRef(null),yt=useRef(null),ytHost=useRef(null),pendingSongs=useRef(false),
   day=D[t],m=day[4][mi],devotional=DEVOTIONAL[day[0]];
+
+  const playAudio=async()=>{
+    if(!audio.current)return;
+    try{
+      setAudioError("");
+      if(audio.current.readyState<2)audio.current.load();
+      await audio.current.play();
+      setPlay(true);
+      setMediaSessionState(true);
+    }catch{
+      setPlay(false);
+      setMediaSessionState(false);
+      setAudioError(online?"Audio could not be loaded. Refresh once if this continues.":"এই মন্ত্রটি এই ফোনে এখনও offline-এ সংরক্ষিত হয়নি। একবার online হয়ে Play করুন, তারপর এটি offline-এ চলবে.");
+    }
+  };
+
+  const pauseAudio=()=>{
+    audio.current?.pause();
+    setPlay(false);
+    setMediaSessionState(false);
+  };
+
+  useEffect(()=>{
+    updateMediaSessionMetadata(m);
+    setMediaSessionState(play);
+
+    if(!("mediaSession"in navigator))return;
+
+    const setAction=(action,handler)=>{
+      try{navigator.mediaSession.setActionHandler(action,handler)}catch{}
+    };
+
+    setAction("play",playAudio);
+    setAction("pause",pauseAudio);
+    setAction("seekbackward",details=>{
+      if(!audio.current)return;
+      const amount=Number(details.seekOffset)||10;
+      audio.current.currentTime=Math.max(0,(audio.current.currentTime||0)-amount);
+    });
+    setAction("seekforward",details=>{
+      if(!audio.current)return;
+      const amount=Number(details.seekOffset)||10;
+      audio.current.currentTime=Math.min(audio.current.duration||Infinity,(audio.current.currentTime||0)+amount);
+    });
+    setAction("seekto",details=>{
+      if(!audio.current||!Number.isFinite(details.seekTime))return;
+      audio.current.currentTime=Math.max(0,Math.min(audio.current.duration||details.seekTime,details.seekTime));
+    });
+    setAction("stop",()=>{
+      if(audio.current){
+        audio.current.pause();
+        audio.current.currentTime=0;
+      }
+      setPlay(false);
+      setMantraCurrent(0);
+      setMediaSessionState(false);
+    });
+
+    return()=>{
+      ["play","pause","seekbackward","seekforward","seekto","stop"].forEach(action=>{
+        try{navigator.mediaSession.setActionHandler(action,null)}catch{}
+      });
+    };
+  },[m,play]);
 
   useEffect(()=>{
     const onOnline=()=>setOnline(true),onOffline=()=>setOnline(false);
@@ -95,6 +177,7 @@ function App(){
     audio.current?.pause();
     if(audio.current){audio.current.currentTime=0;audio.current.load()}
     setPlay(false);setAudioError("");setMantraCurrent(0);setMantraDuration(0);
+    setMediaSessionState(false);
   },[mi,t]);
 
   useEffect(()=>{
@@ -163,17 +246,14 @@ function App(){
 
   const toggle=async()=>{
     if(!audio.current)return;
-    if(play){audio.current.pause();setPlay(false);return}
-    try{
-      setAudioError("");
-      if(audio.current.readyState<2)audio.current.load();
-      await audio.current.play();setPlay(true);
-    }catch{setPlay(false);setAudioError(online?"Audio could not be loaded. Refresh once if this continues.":"এই মন্ত্রটি এই ফোনে এখনও offline-এ সংরক্ষিত হয়নি। একবার online হয়ে Play করুন, তারপর এটি offline-এ চলবে.")}
+    if(play){pauseAudio();return}
+    await playAudio();
   };
 
   const stopMantra=()=>{
     if(audio.current){audio.current.pause();audio.current.currentTime=0}
     setPlay(false);setMantraCurrent(0);
+    setMediaSessionState(false);
   };
 
   const seekMantra=e=>{
@@ -260,7 +340,7 @@ function App(){
       {tab==="home"&&<>
         <section className="hero"><div><small>{labels.today} · {day[1]}</small><h1>{day[2]} {day[0]} <em>{day[1]}</em></h1><p>{day[3]}</p></div><span>✓ {labels.offline} 108×</span></section>
         <section className={"player "+(play?"on":"")}>
-          <audio ref={audio} src={m[3]} preload="metadata" onLoadedMetadata={e=>setMantraDuration(e.currentTarget.duration||0)} onCanPlay={()=>setAudioError("")} onTimeUpdate={e=>{setMantraCurrent(e.currentTarget.currentTime||0);setMantraDuration(e.currentTarget.duration||0)}} onError={()=>{setPlay(false);setAudioError("Audio file failed to load.")}} onEnded={onMantraEnded}/>
+          <audio ref={audio} src={m[3]} preload="metadata" playsInline onLoadedMetadata={e=>setMantraDuration(e.currentTarget.duration||0)} onCanPlay={()=>setAudioError("")} onPlay={()=>{setPlay(true);setMediaSessionState(true)}} onPause={()=>{setPlay(false);setMediaSessionState(false)}} onTimeUpdate={e=>{setMantraCurrent(e.currentTarget.currentTime||0);setMantraDuration(e.currentTarget.duration||0)}} onError={()=>{setPlay(false);setMediaSessionState(false);setAudioError("Audio file failed to load.")}} onEnded={onMantraEnded}/>
           <div className="orbarea"><div className="orb">ॐ</div>{[1,2,3].map(i=><motion.i key={i} animate={{scale:play?[1,1.2,1]:1,opacity:play?[.2,.45,.08]:.08}} transition={{duration:2,repeat:Infinity}}/>)}</div>
           <div className="pill">{day[2]} {day[1]}</div><h2>{m[0]}</h2><div className="sanskrit">{m[1]}</div><div className="translit">{m[2]}</div>
           <div className="audio-note">🎙️ সম্পূর্ণ 108× Sanskrit recording · Full-length · {online?"Offline copy প্রস্তুত হচ্ছে":"Offline mode"}</div>{audioError&&<div className="audio-note errorNote">⚠️ {audioError}</div>}
