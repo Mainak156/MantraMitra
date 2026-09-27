@@ -203,7 +203,7 @@ function App(){
   },[songPlaying]);
 
   useEffect(()=>{
-    if(!songsOpen||!ytHost.current)return;
+    if(!ytHost.current)return;
     let cancelled=false;
     loadYouTubeAPI().then(()=>{
       if(cancelled||yt.current||!ytHost.current)return;
@@ -232,7 +232,7 @@ function App(){
       });
     }).catch(()=>setSongBlocked(true));
     return()=>{cancelled=true};
-  },[songsOpen,t]);
+  },[t]);
 
   const openSongs=(auto=false)=>{
     setTab("songs");setSongsOpen(true);setSongBlocked(false);pendingSongs.current=auto;
@@ -336,6 +336,16 @@ function App(){
 
   return <div className="app">
     <header><div><div className="brand"><img src="/logo.svg" alt="MantraMitra logo"/><b>MantraMitra</b></div><small>নিত্য মন্ত্র • Daily prayer • শান্ত শ্রবণ</small></div><div className="headerActions"><span className={"network "+(online?"online":"offline")}>{online?"● Online":"⌁ Offline"}</span><button className="langBtn" onClick={()=>setLang(lang==="বাংলা"?"English":"বাংলা")}><Languages size={19}/><span>{lang}</span></button></div></header>
+    <div className={"ytPersistent "+(tab==="songs"?"songFull":"songMiniMode")+(songPlaying?" isPlaying":"")}>
+      <div className="ytPersistentVideo"><div className="ytHost" ref={ytHost}/></div>
+      {tab!=="songs"&&<div className="ytMiniInfo">
+        <button onClick={()=>setTab("songs")} className="ytMiniTitle">
+          <b>{devotional.items[songIndex]?.title}</b>
+          <small>{devotional.items[songIndex]?.channel}</small>
+        </button>
+        <button onClick={pauseSong} aria-label="Pause devotional song"><Pause size={18} fill="currentColor"/></button>
+      </div>}
+    </div>
     <main>
       {tab==="home"&&<>
         <section className="hero"><div><small>{labels.today} · {day[1]}</small><h1>{day[2]} {day[0]} <em>{day[1]}</em></h1><p>{day[3]}</p></div><span>✓ {labels.offline} 108×</span></section>
@@ -358,7 +368,6 @@ function App(){
 
       {tab==="songs"&&<div className="songPage"><section className="devotional">
         <div className="section songHeader"><div><small>{labels.online} · {labels.songs}</small><h2>{devotional.title}</h2><p>{devotional.subtitle}</p></div><span>🎵 {devotional.items.length} collection{devotional.items.length>1?"s":""}</span></div>
-        <div className="ytFrame"><div ref={ytHost}/></div>
         <div className="songMeta"><div><b>{devotional.items[songIndex]?.title}</b><small>{devotional.items[songIndex]?.channel}</small></div><a href={"https://www.youtube.com/watch?v="+(devotional.items[songIndex]?.id||"")} target="_blank" rel="noreferrer"><ExternalLink size={16}/></a></div>
         {songBlocked&&<div className="autoplay"><b>▶ ভক্তিগান স্বয়ংক্রিয়ভাবে শুরু করা যায়নি</b><p>Browser autoplay rules blocked the online player. Tap below once to start.</p><button onClick={startSong}><Play size={16} fill="currentColor"/> {labels.startSongs}</button></div>}
         <Controls playing={songPlaying} onPlay={startSong} onPause={pauseSong} onStop={stopSong}/>
